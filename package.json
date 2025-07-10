@@ -1,0 +1,47 @@
+{
+  "name": "fathem",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for Fathem AI Context conversation tracking and analysis",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "prepublishOnly": "npm run build && npm run test && npm run lint"
+  },
+  "keywords": [
+    "fathem",
+    "ai",
+    "context-api",
+    "conversation-tracking",
+    "customer-service",
+    "typescript",
+    "sdk"
+  ],
+  "author": "Fathem@Prabhutva",
+  "license": "MIT",
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mapospace/fathem_.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mapospace/fathem_/issues"
+  },
+  "homepage": "https://github.com/mapospace/fathem_#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

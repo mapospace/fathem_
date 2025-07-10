@@ -1,0 +1,36 @@
+# Source files
+src/
+tests/
+examples/
+
+# Config files
+.eslintrc.json
+.prettierrc
+jest.config.js
+tsconfig.json
+eslint.config.js
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+CONTRIBUTING.md
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+
+# OS
+.DS_Store
+
+# Temp files
+*.tmp
+temp/
+tmp/
