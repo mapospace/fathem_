@@ -7,7 +7,6 @@ export interface TrackConversationRequest {
   conversationId: string;
   messages: Message[];
   userId?: string;
-  isIncremental?: boolean;
 }
 
 export interface Resolution {
@@ -34,18 +33,15 @@ export interface TrackConversationResponse {
   message: string;
   data: {
     conversationId: string;
-    issueType: string;
-    currentStage: string;
-    escalationPoint: number;
-    similarResolutions: Resolution[];
-    usage: Usage;
-    remaining: Remaining;
+    messagesReceived: number;
+    isIncremental: boolean;
   };
   requestId: string;
 }
 
 export interface ResolveConversationRequest {
   conversationId: string;
+  resolutionNotes?: string;
 }
 
 export interface ResolveConversationResponse {
@@ -82,6 +78,71 @@ export interface FathemConfig {
   timeout?: number;
   retryAttempts?: number;
   retryDelay?: number;
+}
+
+export interface SimilaritySearchRequest {
+  message: string;
+  limit?: number;
+}
+
+export interface IssueDetails {
+  name: string;
+  description: string;
+  occurrences: number;
+  symptoms: string[];
+  causes: string[];
+}
+
+export interface SolutionDetails {
+  description: string;
+  steps: string[];
+  prerequisites: string[];
+  successIndicators: string[];
+  stats: {
+    successCount: number;
+    failureCount: number;
+    totalAttempts: number;
+    successRate: number;
+  };
+}
+
+export interface AttemptedSolution {
+  solution: string;
+  outcome: 'success' | 'failure';
+  confidence: number;
+  solutionDetails: SolutionDetails;
+}
+
+export interface SimilarConversation {
+  resolutionNotes: string;
+  issueDetails: IssueDetails;
+  attemptedSolutions: AttemptedSolution[];
+}
+
+export interface RecommendedAction {
+  action: string;
+  successProbability: number;
+  averageTimeToResolve: number;
+}
+
+export interface Recommendations {
+  issueType: string;
+  recommendedActions: RecommendedAction[];
+  escalationPoint: number;
+  historicalSuccessRate: number;
+  similarResolutions: any[];
+}
+
+export interface SimilaritySearchResponse {
+  success: boolean;
+  message: string;
+  data: {
+    query: string;
+    totalFound: number;
+    conversations: SimilarConversation[];
+    recommendations: Recommendations;
+  };
+  requestId: string;
 }
 
 export type FathemResponse<T> = T | ErrorResponse;

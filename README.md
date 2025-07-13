@@ -1,13 +1,17 @@
 # Fathem AI SDK
 
-A production-grade TypeScript SDK for the Fathem AI Context API - intelligent conversation tracking and analysis for customer service applications.
+TypeScript SDK for the Fathem AI Context API - intelligent conversation tracking and analysis for customer service applications.
+
+## Version 2.0.0 - Breaking Changes
+
+> **Important**: Version 2.0.0 removes the `trackConversationIncremental` method. The API now automatically handles incremental updates based on conversation ID.
 
 ## Features
 
 - 🚀 **Production Ready**: Built with TypeScript, comprehensive error handling, and extensive test coverage
-- 🔄 **Automatic Retries**: Configurable retry logic with exponential backoff
+- 🔄 **Automatic Incremental Updates**: API automatically detects if messages should be added to existing conversations
 - 🛡️ **Type Safe**: Full TypeScript support with detailed type definitions
-- 📊 **Smart Rate Limiting**: Automatic handling of rate limits with retry-after support
+- 📊 **Smart Recommendations**: AI-powered similarity search with actionable recommendations
 - 🧪 **Well Tested**: Comprehensive unit tests with >80% coverage requirement
 - 📝 **Detailed Errors**: Custom error classes for different failure scenarios
 - ⚡ **Modern Async/Await**: Clean, promise-based API
@@ -15,20 +19,20 @@ A production-grade TypeScript SDK for the Fathem AI Context API - intelligent co
 ## Installation
 
 ```bash
-npm install fathem
+npm install @fathem/fathem
 ```
 
 ## Quick Start
 
 ```typescript
-import { FathemClient } from 'fathem';
+import { FathemClient } from '@fathem/fathem';
 
 // Initialize the client
 const client = new FathemClient({
   apiKey: 'your_api_key_here'
 });
 
-// Track a conversation
+// Track a NEW conversation
 const response = await client.trackConversation({
   conversationId: 'conv_123',
   messages: [
@@ -38,11 +42,19 @@ const response = await client.trackConversation({
   userId: 'customer_12345'
 });
 
-console.log('Issue Type:', response.data.issueType);
-console.log('Current Stage:', response.data.currentStage);
+console.log('Messages tracked:', response.data.messagesReceived);
+console.log('Is incremental:', response.data.isIncremental); // false for new conversations
 
-// Mark conversation as resolved
-await client.resolveConversation('conv_123');
+// Continue the SAME conversation (automatically incremental)
+const response2 = await client.trackConversation({
+  conversationId: 'conv_123',  // Same ID = incremental update
+  messages: [
+    { role: 'user', content: 'It says card declined' },
+    { role: 'assistant', content: 'Let me check your card status' }
+  ]
+});
+
+console.log('Is incremental:', response2.data.isIncremental); // true for existing conversations
 ```
 
 ## Configuration
@@ -61,39 +73,60 @@ const client = new FathemClient({
 
 ### Track Conversation
 
-Track conversation progress and get real-time recommendations.
+Track conversation messages. The API automatically handles incremental updates based on conversation ID.
 
 ```typescript
+// First call - creates new conversation
 const response = await client.trackConversation({
   conversationId: 'conv_123',
   messages: [
     { role: 'user', content: 'Hello' },
     { role: 'assistant', content: 'Hi there!' }
   ],
-  userId: 'user_123',        // Optional
-  isIncremental: false       // Optional: append to existing conversation
+  userId: 'user_123'  // Optional
+});
+
+// Subsequent calls - automatically incremental
+const response2 = await client.trackConversation({
+  conversationId: 'conv_123',  // Same ID
+  messages: [                  // Only NEW messages
+    { role: 'user', content: 'I need help' }
+  ]
 });
 ```
 
-### Track Conversation Incrementally
+### Find Similar Conversations
 
-Convenience method for incremental conversation updates.
+Search for similar issues and get AI-powered recommendations.
 
 ```typescript
-const response = await client.trackConversationIncremental(
-  'conv_123',
-  [{ role: 'user', content: 'New message' }],
-  'user_123'
+const similar = await client.findSimilarConversations(
+  'payment declined credit card',
+  10  // Optional: limit (default: 10, max: 100)
 );
+
+// Access recommendations
+if (similar.data.recommendations?.recommendedActions) {
+  similar.data.recommendations.recommendedActions.forEach(action => {
+    console.log(`Action: ${action.action}`);
+    console.log(`Success Rate: ${action.successProbability * 100}%`);
+  });
+}
 ```
 
 ### Resolve Conversation
 
-Mark a conversation as resolved. The system automatically generates resolution notes.
+Mark a conversation as resolved with optional custom notes.
 
 ```typescript
-const response = await client.resolveConversation('conv_123');
-console.log('Resolution Notes:', response.data.resolutionNotes);
+// With custom resolution notes
+const response = await client.resolveConversation(
+  'conv_123',
+  'Issue resolved - updated payment method'
+);
+
+// Without notes (auto-generated)
+const response2 = await client.resolveConversation('conv_456');
 ```
 
 ### Health Check
@@ -102,7 +135,8 @@ Check the API service health status.
 
 ```typescript
 const health = await client.checkHealth();
-console.log('Service Status:', health.services);
+console.log('Service Status:', health.message);
+console.log('Services:', health.services);
 ```
 
 ## Error Handling
@@ -118,7 +152,7 @@ import {
   FathemConflictError,
   FathemValidationError,
   FathemNetworkError
-} from 'fathem';
+} from '@fathem/fathem';
 
 try {
   await client.trackConversation(request);
@@ -150,20 +184,21 @@ import {
   Message,
   TrackConversationRequest,
   TrackConversationResponse,
+  SimilaritySearchRequest,
+  SimilaritySearchResponse,
+  ResolveConversationRequest,
   ResolveConversationResponse,
-  HealthCheckResponse,
-  Usage,
-  Remaining
-} from 'fathem';
+  HealthCheckResponse
+} from '@fathem/fathem';
 ```
 
 ## Best Practices
 
 1. **Unique Conversation IDs**: Use unique conversation IDs for each customer session
-2. **Complete Message History**: Send all messages or use incremental updates consistently
-3. **Track Resolution**: Always mark conversations as resolved for better learning
+2. **Send Only New Messages**: When updating conversations, only send new messages
+3. **Track Resolution**: Always mark conversations as resolved for better AI learning
 4. **Error Recovery**: Implement proper error handling for production applications
-5. **Rate Limit Handling**: The SDK handles rate limits automatically, but monitor usage
+5. **Check Response Flags**: Use `isIncremental` in responses to verify behavior
 
 ## Development
 
@@ -189,15 +224,14 @@ npm run format
 
 ## API Rate Limits
 
-The SDK automatically handles rate limiting with exponential backoff. Rate limits vary by subscription tier:
-
-- **Freemium**: 1,000 requests/month
-- **Premium**: 25,000 requests/month
-- **Pro**: 100,000 requests/month
+The SDK automatically handles rate limiting with exponential backoff. When limits are exceeded:
+- You'll receive a 429 status code
+- The error includes details about which limit was reached
+- Use the `retryAfter` value to wait before retrying
 
 ## Support
 
-For API support or technical questions, please contact the Fathem AI support team with your API key and specific requirements.
+For API support or technical questions, please contact the Fathem AI support team with your API key and specific error details.
 
 ## License
 

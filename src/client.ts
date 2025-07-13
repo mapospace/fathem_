@@ -5,6 +5,8 @@ import {
   TrackConversationResponse,
   ResolveConversationRequest,
   ResolveConversationResponse,
+  SimilaritySearchRequest,
+  SimilaritySearchResponse,
   HealthCheckResponse,
   ErrorResponse,
 } from './types';
@@ -98,7 +100,8 @@ export class FathemClient {
   }
 
   /**
-   * Track conversation progress and get real-time recommendations
+   * Track conversation messages. Automatically handles incremental updates
+   * if the conversationId already exists.
    */
   async trackConversation(request: TrackConversationRequest): Promise<TrackConversationResponse> {
     validateTrackConversationRequest(request);
@@ -109,33 +112,49 @@ export class FathemClient {
     }, this.retryOptions);
   }
 
-  /**
-   * Track conversation with incremental updates
-   */
-  async trackConversationIncremental(
-    conversationId: string,
-    messages: TrackConversationRequest['messages'],
-    userId?: string,
-  ): Promise<TrackConversationResponse> {
-    return this.trackConversation({
-      conversationId,
-      messages,
-      userId,
-      isIncremental: true,
-    });
-  }
 
   /**
    * Mark conversation as resolved
    */
-  async resolveConversation(conversationId: string): Promise<ResolveConversationResponse> {
+  async resolveConversation(
+    conversationId: string,
+    resolutionNotes?: string,
+  ): Promise<ResolveConversationResponse> {
     validateConversationId(conversationId);
 
-    const request: ResolveConversationRequest = { conversationId };
+    const request: ResolveConversationRequest = {
+      conversationId,
+      resolutionNotes,
+    };
 
     return withRetry(async () => {
       const response = await this.client.post<ResolveConversationResponse>(
         '/context/resolve',
+        request,
+      );
+      return response.data;
+    }, this.retryOptions);
+  }
+
+  /**
+   * Find similar conversations and get recommendations
+   */
+  async findSimilarConversations(
+    message: string,
+    limit?: number,
+  ): Promise<SimilaritySearchResponse> {
+    if (!message || message.trim().length === 0) {
+      throw new FathemValidationError('Message cannot be empty');
+    }
+
+    const request: SimilaritySearchRequest = {
+      message,
+      limit,
+    };
+
+    return withRetry(async () => {
+      const response = await this.client.post<SimilaritySearchResponse>(
+        '/context/similarity',
         request,
       );
       return response.data;

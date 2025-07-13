@@ -3,111 +3,95 @@ import {
   FathemAuthenticationError,
   FathemRateLimitError,
   FathemNotFoundError,
-  FathemConflictError,
   FathemValidationError,
-  TrackConversationRequest,
   Message,
 } from '../src';
 
-// Custom conversation manager with error handling and retry logic
-class ConversationManager {
+// Customer support agent assistant
+class AgentAssistant {
   private client: FathemClient;
-  private conversations: Map<string, Message[]> = new Map();
+  private activeConversations: Map<string, Message[]> = new Map();
 
   constructor(apiKey: string) {
     this.client = new FathemClient({
       apiKey,
       timeout: 45000,
-      retryAttempts: 5,
+      retryAttempts: 3,
       retryDelay: 2000,
     });
   }
 
-  async startConversation(conversationId: string, initialMessage: string): Promise<void> {
-    const messages: Message[] = [{ role: 'user', content: initialMessage }];
-    this.conversations.set(conversationId, messages);
-
+  async handleNewConversation(conversationId: string, initialMessage: string, userId?: string): Promise<void> {
     try {
+      // Track the initial message
       const response = await this.client.trackConversation({
         conversationId,
-        messages,
+        messages: [{ role: 'user', content: initialMessage }],
+        userId,
       });
 
-      console.log(`Conversation ${conversationId} started`);
-      console.log(`Detected issue type: ${response.data.issueType}`);
+      console.log(`New conversation started: ${conversationId}`);
+      console.log(`Messages tracked: ${response.data.messagesReceived}`);
+
+      // Store for tracking
+      this.activeConversations.set(conversationId, [
+        { role: 'user', content: initialMessage }
+      ]);
+
+      // Find similar issues immediately
+      const similar = await this.client.findSimilarConversations(initialMessage, 3);
+      if (similar.data.totalFound > 0) {
+        console.log(`Found ${similar.data.totalFound} similar conversations`);
+        // Agent can use these recommendations
+      }
     } catch (error) {
       this.handleError(error);
     }
   }
 
-  async addMessage(
-    conversationId: string,
-    role: 'user' | 'assistant',
-    content: string,
-  ): Promise<void> {
-    const messages = this.conversations.get(conversationId);
-    if (!messages) {
-      throw new Error(`Conversation ${conversationId} not found`);
-    }
-
-    messages.push({ role, content });
-
+  async addMessage(conversationId: string, role: 'user' | 'assistant', content: string): Promise<void> {
     try {
-      const response = await this.client.trackConversationIncremental(
+      // Track the new message
+      const response = await this.client.trackConversation({
         conversationId,
-        [{ role, content }],
-      );
+        messages: [{ role, content }],
+      });
 
-      console.log(`Message added to ${conversationId}`);
-      console.log(`Current stage: ${response.data.currentStage}`);
+      console.log(`Added ${role} message to ${conversationId}`);
+      console.log(`Is continuation: ${response.data.isIncremental}`);
 
-      // Check if we should escalate
-      if (response.data.escalationPoint > 5) {
-        console.warn('Consider escalating to human agent');
-      }
+      // Update local tracking
+      const messages = this.activeConversations.get(conversationId) || [];
+      messages.push({ role, content });
+      this.activeConversations.set(conversationId, messages);
 
-      // Show similar resolutions if available
-      if (response.data.similarResolutions.length > 0) {
-        console.log('Similar resolutions found:');
-        response.data.similarResolutions.forEach((resolution) => {
-          console.log(`- ${resolution.issueType}: ${resolution.resolutionPath.join(' -> ')}`);
-        });
-      }
     } catch (error) {
       this.handleError(error);
     }
   }
 
-  async resolveConversation(conversationId: string): Promise<void> {
+  async resolveConversation(conversationId: string, resolution: string): Promise<void> {
     try {
-      const response = await this.client.resolveConversation(conversationId);
+      const response = await this.client.resolveConversation(conversationId, resolution);
       console.log(`Conversation ${conversationId} resolved`);
       console.log(`Resolution: ${response.data.resolutionNotes}`);
-      this.conversations.delete(conversationId);
+      
+      // Clean up
+      this.activeConversations.delete(conversationId);
     } catch (error) {
-      if (error instanceof FathemConflictError) {
-        console.log('Conversation already resolved');
-        this.conversations.delete(conversationId);
-      } else {
-        this.handleError(error);
-      }
+      this.handleError(error);
     }
   }
 
   private handleError(error: unknown): void {
     if (error instanceof FathemAuthenticationError) {
-      console.error('Authentication failed. Please check your API key.');
-      process.exit(1);
+      console.error('Authentication failed. Check API key.');
     } else if (error instanceof FathemRateLimitError) {
-      console.error(`Rate limit exceeded. Retry after ${error.retryAfter} seconds`);
-      console.error('Consider upgrading your subscription for higher limits');
+      console.error(`Rate limit hit. Retry after ${error.retryAfter}s`);
     } else if (error instanceof FathemNotFoundError) {
-      console.error('Conversation not found. It may have been deleted or expired.');
+      console.error('Resource not found:', error.message);
     } else if (error instanceof FathemValidationError) {
       console.error('Validation error:', error.message);
-      if (error.details) {
-        console.error('Details:', error.details);
-      }
     } else {
       console.error('Unexpected error:', error);
     }
@@ -115,76 +99,59 @@ class ConversationManager {
 }
 
 // Example usage
-async function runAdvancedExample() {
-  const manager = new ConversationManager(
-    process.env.FATHEM_API_KEY || 'your_api_key_here',
+async function demonstrateAgentAssistant() {
+  const assistant = new AgentAssistant(
+    process.env.FATHEM_API_KEY || 'your_api_key_here'
   );
 
-  // Simulate a customer service conversation
-  const conversationId = `conv_${Date.now()}`;
+  const conversationId = `support_${Date.now()}`;
 
   try {
-    // Customer initiates conversation
-    await manager.startConversation(
+    // Customer initiates
+    await assistant.handleNewConversation(
       conversationId,
-      "I can't log into my account. It says my password is wrong but I'm sure it's correct.",
+      "I can't access my account, it says my password is invalid",
+      'customer_789'
     );
 
     // Agent responds
-    await manager.addMessage(
+    await assistant.addMessage(
       conversationId,
       'assistant',
-      "I'm sorry to hear you're having trouble logging in. Let me help you with that. First, can you confirm the email address associated with your account?",
+      "I can help you regain access. Let me verify your identity first. Can you provide your email?"
     );
 
-    // Customer provides information
-    await manager.addMessage(
+    // Customer provides info
+    await assistant.addMessage(
       conversationId,
       'user',
-      'Yes, it\'s john.doe@example.com',
+      'Yes, it\'s user@example.com'
     );
 
-    // Agent provides solution
-    await manager.addMessage(
+    // Agent helps
+    await assistant.addMessage(
       conversationId,
       'assistant',
-      "Thank you. I can see your account. For security, I've sent a password reset link to john.doe@example.com. Please check your email and follow the instructions.",
+      "Thank you. I've sent a password reset link to user@example.com. Please check your email."
     );
 
-    // Customer confirms resolution
-    await manager.addMessage(
+    // Customer confirms
+    await assistant.addMessage(
       conversationId,
       'user',
-      'Got it! I received the email and was able to reset my password. Thanks for your help!',
+      'Got it! I was able to reset my password and log in. Thank you!'
     );
 
-    // Agent closes conversation
-    await manager.addMessage(
+    // Resolve
+    await assistant.resolveConversation(
       conversationId,
-      'assistant',
-      "You're welcome! I'm glad I could help you regain access to your account. Is there anything else I can assist you with today?",
+      'Password reset completed successfully via email link'
     );
 
-    await manager.addMessage(
-      conversationId,
-      'user',
-      "No, that's all. Thanks again!",
-    );
-
-    // Resolve the conversation
-    await manager.resolveConversation(conversationId);
-
-    // Demonstrate error handling by trying to update a resolved conversation
-    console.log('\n--- Testing error handling ---');
-    await manager.addMessage(
-      conversationId,
-      'user',
-      'Actually, I have another question...',
-    );
   } catch (error) {
-    console.error('Example failed:', error);
+    console.error('Demo failed:', error);
   }
 }
 
-// Run the example
-runAdvancedExample().catch(console.error);
+// Run the demo
+demonstrateAgentAssistant().catch(console.error);
