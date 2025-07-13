@@ -130,7 +130,7 @@ export interface Recommendations {
   recommendedActions: RecommendedAction[];
   escalationPoint: number;
   historicalSuccessRate: number;
-  similarResolutions: any[];
+  similarResolutions: Resolution[];
 }
 
 export interface SimilaritySearchResponse {

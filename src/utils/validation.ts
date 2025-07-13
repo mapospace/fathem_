@@ -44,10 +44,6 @@ export function validateTrackConversationRequest(request: TrackConversationReque
   if (request.userId !== undefined && typeof request.userId !== 'string') {
     throw new FathemValidationError('userId must be a string if provided');
   }
-
-  if (request.isIncremental !== undefined && typeof request.isIncremental !== 'boolean') {
-    throw new FathemValidationError('isIncremental must be a boolean if provided');
-  }
 }
 
 export function validateApiKey(apiKey: string): void {

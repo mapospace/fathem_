@@ -112,7 +112,6 @@ export class FathemClient {
     }, this.retryOptions);
   }
 
-
   /**
    * Mark conversation as resolved
    */

@@ -115,9 +115,23 @@ describe('FathemClient', () => {
     });
   });
 
-  describe('trackConversationIncremental', () => {
-    it('should call trackConversation with isIncremental flag', async () => {
-      const mockPost = jest.fn().mockResolvedValue({ data: {} });
+  describe('findSimilarConversations', () => {
+    it('should find similar conversations successfully', async () => {
+      const mockResponse = {
+        data: {
+          success: true,
+          message: 'Similar conversations retrieved',
+          data: {
+            query: 'test query',
+            totalFound: 5,
+            conversations: [],
+            recommendations: null
+          },
+          requestId: 'req_123'
+        }
+      };
+      
+      const mockPost = jest.fn().mockResolvedValue(mockResponse);
       mockedAxios.create.mockReturnValue({
         post: mockPost,
         get: jest.fn(),
@@ -129,16 +143,17 @@ describe('FathemClient', () => {
       } as any);
 
       const newClient = new FathemClient({ apiKey: mockApiKey });
-      const messages = [{ role: 'user' as const, content: 'Hello' }];
+      const result = await newClient.findSimilarConversations('test query', 10);
 
-      await newClient.trackConversationIncremental('conv_123', messages, 'user_123');
-
-      expect(mockPost).toHaveBeenCalledWith('/context/track', {
-        conversationId: 'conv_123',
-        messages,
-        userId: 'user_123',
-        isIncremental: true,
+      expect(mockPost).toHaveBeenCalledWith('/context/similarity', {
+        message: 'test query',
+        limit: 10,
       });
+      expect(result).toEqual(mockResponse.data);
+    });
+    
+    it('should validate empty message', async () => {
+      await expect(client.findSimilarConversations('', 5)).rejects.toThrow('Message cannot be empty');
     });
   });
 

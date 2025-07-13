@@ -101,7 +101,6 @@ describe('Validation Utils', () => {
         validateTrackConversationRequest({
           ...validRequest,
           userId: 'user_123',
-          isIncremental: true,
         }),
       ).not.toThrow();
     });
@@ -124,13 +123,6 @@ describe('Validation Utils', () => {
       const invalidRequest = { ...validRequest, userId: 123 as any };
       expect(() => validateTrackConversationRequest(invalidRequest)).toThrow(
         'userId must be a string if provided',
-      );
-    });
-
-    it('should validate optional isIncremental type', () => {
-      const invalidRequest = { ...validRequest, isIncremental: 'true' as any };
-      expect(() => validateTrackConversationRequest(invalidRequest)).toThrow(
-        'isIncremental must be a boolean if provided',
       );
     });
   });
